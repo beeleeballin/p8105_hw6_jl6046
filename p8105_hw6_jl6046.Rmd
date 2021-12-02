@@ -8,4 +8,16 @@ output: github_document
 ```{r}
 library(tidyverse)
 ```
+(1 = White, 2 = Black, 3 = Asian, 4 = Puerto Rican, 8 = Other, 9 = Unknown)
+```{r}
+bw_df = 
+  read_csv("~/Desktop/Columbia/Fall_2021/P8105-Data_Science/HW/p8105_hw6_jl6046/data/birthweight.csv") %>% 
+  mutate(
+    babysex = recode_factor(babysex, `2` = "F", `1` = "M"),
+    # babysex = factor(babysex, levels = c("F", "M")),
+    frace = recode_factor(frace, `1` = "White", `2` = "Black", `3` = "Asian", `4` = "Puerto Rico", `8` = "Other", `9` = "Unknown"),
+    malform = recode_factor(malform, `0` = "Absent", `1` = "Present"),
+    mrace = recode_factor(mrace, `1` = "White", `2` = "Black", `3` = "Asian", `4` = "Puerto Rico", `8` = "Other")
+  )
+```
 
