@@ -1,0 +1,11 @@
+---
+title: "P8105 HW6"
+author: Brian Jo Hsuan Lee
+date: 2021-12-01
+output: github_document
+---
+
+```{r}
+library(tidyverse)
+```
+
