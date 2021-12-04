@@ -5,19 +5,96 @@ date: 2021-12-01
 output: github_document
 ---
 
+Load libraries
 ```{r}
 library(tidyverse)
+library(modelr)
+setwd("~/Desktop/Columbia/Fall_2021/P8105-Data_Science/HW/p8105_hw6_jl6046/")
 ```
-(1 = White, 2 = Black, 3 = Asian, 4 = Puerto Rican, 8 = Other, 9 = Unknown)
+
+Import .csv and convert columns
 ```{r}
 bw_df = 
-  read_csv("~/Desktop/Columbia/Fall_2021/P8105-Data_Science/HW/p8105_hw6_jl6046/data/birthweight.csv") %>% 
+  read_csv("./data/birthweight.csv") %>% 
   mutate(
     babysex = recode_factor(babysex, `2` = "F", `1` = "M"),
     # babysex = factor(babysex, levels = c("F", "M")),
     frace = recode_factor(frace, `1` = "White", `2` = "Black", `3` = "Asian", `4` = "Puerto Rico", `8` = "Other", `9` = "Unknown"),
     malform = recode_factor(malform, `0` = "Absent", `1` = "Present"),
     mrace = recode_factor(mrace, `1` = "White", `2` = "Black", `3` = "Asian", `4` = "Puerto Rico", `8` = "Other")
+  )
+```
+
+Develop a robust model
+
+```{r}
+my_fit = 
+  lm(bwt ~ ., data = bw_df) %>% 
+  step(direction = 'both')
+```
+
+Introduce 2 suggested models
+```{r}
+fit_1 = 
+  lm(bwt ~ blength + gaweeks, data = bw_df)
+fit_2 = 
+  lm(bwt ~ babysex * bhead + babysex * blength + bhead * blength + babysex * bhead * blength, data = bw_df)
+```
+
+Compare the 3 models
+```{r}
+all_fit_df = 
+  bw_df %>% 
+  gather_predictions(my_fit, fit_1, fit_2) %>% 
+  left_join(
+    bw_df %>% 
+      gather_residuals(my_fit, fit_1, fit_2)
+  ) %>% 
+  mutate(model = fct_inorder(model)) 
+
+all_fit_df %>% 
+  ggplot(aes(x = pred, y = resid)) + 
+  geom_point() + 
+  facet_wrap(~model)
+
+plot(my_fit, which = 1)
+plot(fit_1, which = 1)
+plot(fit_2, which = 1)
+```
+
+```{r}
+cv_df = 
+  crossv_mc(all_fit_df, 100) %>% 
+  mutate(
+    my_model  = map(train, ~my_fit),
+    model_a  = map(train, ~fit_1),
+    model_b  = map(train, ~fit_2),
+    rmse_my_model = map2_dbl(my_model, test, ~rmse(model = .x, data = .y)),
+    rmse_model_a = map2_dbl(model_a, test, ~rmse(model = .x, data = .y)),
+    rmse_model_b = map2_dbl(model_b, test, ~rmse(model = .x, data = .y))
+  ) %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model))
+
+SoilSciGuylabs = c("Mine", "A (suggested)", "B (suggested)")
+
+cv_df %>% 
+  ggplot(aes(x = model, y = rmse)) + 
+  geom_violin() +
+  labs(
+    title = "Model RMSE Distribution for Comparability",
+    x = "Models",
+    y = "RMSE"
+  ) +
+  scale_x_discrete(labels= SoilSciGuylabs) +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    legend.title = element_blank()
   )
 ```
 
