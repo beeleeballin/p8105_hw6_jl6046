@@ -13,6 +13,25 @@ library(patchwork)
 setwd("~/Desktop/Columbia/Fall_2021/P8105-Data_Science/HW/p8105_hw6_jl6046/")
 ```
 
+Set knitr options
+```{r}
+knitr::opts_chunk$set(
+  fig.width = 7,
+  fig.asp = .7,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
 Import .csv and convert columns
 ```{r, message=F}
 bw_df = 
@@ -26,15 +45,14 @@ bw_df =
   )
 ```
 
-Develop a robust model
-
+Develop a robust model. I decided to use the step-wise regression for the predictor selection process, as it optimizes my model based on AIC. 
 ```{r, message=F, warning=F}
 my_fit = 
   lm(bwt ~ ., data = bw_df) %>% 
   step(direction = 'both')
 ```
 
-Introduce 2 suggested models
+Introduce the 2 suggested models
 ```{r}
 fit_1 = 
   lm(bwt ~ blength + gaweeks, data = bw_df)
@@ -42,8 +60,44 @@ fit_2 =
   lm(bwt ~ babysex * bhead + babysex * blength + bhead * blength + babysex * bhead * blength, data = bw_df)
 ```
 
-Compare the 3 models using residuals vs fitted/predicted values plots
+Compare the 3 models using residuals vs fitted/predicted values plots. Not I included an extra plot of the same nature with regression lines plotted for extra information on the goodness of fit. 
 ```{r}
+bw_df %>% 
+  modelr::add_predictions(my_fit) %>% 
+  modelr::add_residuals(my_fit) %>%
+  mutate(
+    model = factor("my_model", labels = "My Model")
+  ) %>% 
+  bind_rows(
+    bw_df %>% 
+      modelr::add_predictions(fit_1) %>% 
+      modelr::add_residuals(fit_1) %>% 
+      mutate(
+        model = factor("model_1", labels = "Model A")
+      )
+  ) %>% 
+  bind_rows(
+    bw_df %>% 
+      modelr::add_predictions(fit_2) %>% 
+      modelr::add_residuals(fit_2) %>% 
+      mutate(
+        model = factor("model_2", labels = "Model B")
+      )
+  ) %>% 
+  ggplot(aes(x = pred, y = resid, color = model, alpha = 0.5)) +
+  geom_point() +
+  labs(
+    title = "Residual vs Fitted/Predicted Values Across 3 Models",
+    x = "Predicted Values",
+    y = "Residuals"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 90),
+    plot.title = element_text(hjust = 0.5),
+    legend.position = "none"
+  ) + 
+  facet_wrap(~model)
+
 par(mfrow=c(1,3))
 my_plot = plot(my_fit, which = 1)
 plot_a = plot(fit_1, which = 1)
@@ -62,10 +116,7 @@ all_fit_df =
   ) %>% 
   mutate(model = fct_inorder(model)) 
 
-# all_fit_df %>% 
-#   ggplot(aes(x = pred, y = resid)) + 
-#   geom_point() + 
-#   facet_wrap(~model)
+
 
 cv_df = 
   crossv_mc(all_fit_df, 100) %>% 
@@ -88,17 +139,17 @@ cv_df =
 SoilSciGuylabs = c("Mine", "A (suggested)", "B (suggested)")
 
 cv_df %>% 
-  ggplot(aes(x = model, y = rmse)) + 
+  ggplot(aes(x = model, y = rmse, fill = model, color = model)) + 
   geom_violin() +
   labs(
-    title = "Model RMSE Distribution for Comparability",
+    title = "Model RMSE Distribution Across 3 Models",
     x = "Models",
     y = "RMSE"
   ) +
   scale_x_discrete(labels= SoilSciGuylabs) +
   theme(
     plot.title = element_text(hjust = 0.5),
-    legend.title = element_blank()
+    legend.position = "none"
   )
 ```
 
