@@ -13,7 +13,7 @@ library(patchwork)
 setwd("~/Desktop/Columbia/Fall_2021/P8105-Data_Science/HW/p8105_hw6_jl6046/")
 ```
 
-Set knitr options
+Set knitr options and seed for reproducibility
 ```{r}
 knitr::opts_chunk$set(
   fig.width = 7,
@@ -30,6 +30,8 @@ options(
 
 scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
+
+set.seed(33)
 ```
 
 ## Problem 1: Linear Modeling and Cross Validation
@@ -172,32 +174,11 @@ weather_df =
   select(name, id, everything())
 ```
 
-Run bootstrap
-```{r, eval=F}
-set.seed(33)
-
-## this ain't right besides the size
+Run bootstrap to evaluate sample distribution in preparation for further statistical inference methods. We are interested in the distribution of 2 particular measures: one is the $r^{2}$ of minimum temperature as a predictor and maximum temperature as a response, the other is the log transformation of the product of 2 regression coefficients of that SLR regression model. Bootstrapping at 5000 samples, we see that there is a slight left skew to both measures, but it is mostly symmetrical and could likely be treated as normal upon data visualization.
+```{r}
 bs_weather =
   weather_df %>% 
   modelr::bootstrap(n = 5000) %>% 
-  mutate(
-    models = map(strap, ~lm(tmax ~ tmin, data = .x) ),
-    results = map(models, broom::tidy)) %>% 
-  select(-strap, -models) %>% 
-  unnest(results) 
-
-ci_lower_bound = function(x){
-  return(quantile(x, 0.025))
-}
-
-ci_upper_bound = function(x){
-  return(quantile(x, 0.975))
-}
-
-## start with this
-bs_weather_small =
-  weather_df %>% 
-  modelr::bootstrap(n = 50) %>% 
   mutate(
     models = map(strap, ~lm(tmax ~ tmin, data = .x)),
     glanced_res = map(models, broom::glance),
@@ -213,35 +194,44 @@ bs_weather_small =
   mutate(
     log_B0B1 = log(`(Intercept)`*tmin)
   ) %>% 
-  select(-`(Intercept)`, -tmin) %>% 
-  summarize(across(everything(), list(ci_lower = ci_lower_bound, ci_upper = ci_upper_bound)))
+  select(-`(Intercept)`, -tmin)
+
+r2_dist = 
+  bs_weather %>% 
+  ggplot(aes(x = r.squared)) + 
+  geom_density()+
+  labs(
+    title = "",
+    x = expression(r^{2}),
+    y = "Frequency"
+  )
+
+logb0b1_dist =
+  bs_weather %>% 
+  ggplot(aes(x = log_B0B1)) +
+  geom_density() +
+  labs(
+    title = "",
+    x = expression(log(beta[0]*beta[1])),
+    y = ""
+  )
+
+r2_dist + logb0b1_dist
 ```
 
+Define helper functions and calculate 95% confidence interval. The CI of $r^{2}$ is (0.894, 0.927), and of $log(\beta_0\beta_1)$ is (1.963, 2.057)
+```{r}
+ci_lower_bound = function(x){
+  return(quantile(x, 0.025))
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+ci_upper_bound = function(x){
+  return(quantile(x, 0.975))
+}
+bs_weather %>% 
+  summarize(across(everything(), list(ci_lower = ci_lower_bound, ci_upper = ci_upper_bound))) %>% 
+  knitr::kable(digits = 3)
+```
 
 
 
